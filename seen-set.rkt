@@ -1,13 +1,21 @@
 #lang racket
 
-(require "../racket-utils/tri-partition-set.rkt"
-         "../lattice/lattice.rkt"
+(require "../lattice/lattice.rkt"
          racket/contract/region
          racket/generic
          )
 (provide filter-out-seen
          initial-seen-set
+         ctx-gte?
+         sigma-gte?
          )
+
+(define ctx-gte?
+  (make-parameter
+   (lambda (x y) (error 'ctx-gte "please parameterize by ctx-gte?"))))
+(define sigma-gte?
+  (make-parameter
+   (lambda (x y) (error 'sigma-gte "please parameterize by sigma-gte?"))))
 
 (struct seen-set (h)
         #:transparent
@@ -35,17 +43,18 @@
 (define (seen-set-add Seen item)
   (match-define (list ctx sigma code) item)
   (define relevant-subset (seen-set-relevant-subset Seen code))
-  (define-values (greater-or-eq lesser incomparable)
-    (tri-partition-set (lambda (x) (item-gte? x item))
-                       (lambda (x) (item-gte? item x))
-                       relevant-subset))
-  (if (set-empty? greater-or-eq)
-      (values #t (seen-set-change-code-set Seen code (set-add incomparable item)))
-      (begin (log-info
-              "We've already seen:\n  ~a\nwhose related stuff is:\n  ~a\n\n"
-              item
-              relevant-subset)
-             (values #f Seen))))
+  (define already-known (for/or ([x relevant-subset]) (item-gte? x item)))
+  (cond [already-known
+         (log-info "We already know:\n  ~a\nwhose related stuff is:\n  ~a\n\n"
+                   item
+                   relevant-subset)
+         (values #f Seen)]
+        [else
+         (define incomparables (set-filter (lambda (x) (not (item-gte? item x)))
+                                           relevant-subset))
+         (values #t (seen-set-change-code-set Seen
+                                              code
+                                              (set-add incomparables item)))]))
 
 (define (filter-out-seen news Seen)
   (for/fold
@@ -63,5 +72,14 @@
   (match-define (list ctx2 sigma2 code2) r)
 
   (and (equal? code code2)
-       (gen:gte? ctx ctx2)
-       (gen:gte? sigma sigma2)))
+       ((ctx-gte?) ctx ctx2)
+       ((sigma-gte?) sigma sigma2)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Set Utilities
+
+(define (set-filter p s)
+  (for/fold
+      ([new (set)])
+      ([e (in-set s)])
+    (if (p e) (set-add new e) new)))

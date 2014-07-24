@@ -13,6 +13,8 @@
   (match-define (FlowAnalysis flow
                               flow-ctx
                               flow-across
+                              user-ctx-gte?
+                              user-sigma-gte?
                               initial-work-set
                               initial-configuration
                               initial-ctx-state)
@@ -42,5 +44,7 @@
 
            (loop W** Seen* Configuration*** CtxState**)]))
 
-  (loop initial-work-set (initial-seen-set initial-work-set)
-        initial-configuration initial-ctx-state))
+  (parameterize ([ctx-gte? user-ctx-gte?]
+                 [sigma-gte? user-sigma-gte?])
+    (loop initial-work-set (initial-seen-set initial-work-set)
+          initial-configuration initial-ctx-state)))
