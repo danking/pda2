@@ -136,16 +136,14 @@
                                                            (pda-term->uid x))))))
                (printf "::\n"))
 
-             (define-values (ctx*s CtxState* Configuration*)
+             (define-values (new-ctx CtxState* Configuration*)
                ((flow-ctx code) ctx sigma CtxState Configuration))
              (define-values (news Configuration**)
-               ((flow code) ctx sigma Configuration*))
+               ((flow code) ctx new-ctx sigma Configuration*))
              (define-values (news-across CtxState** Configuration***)
-               (flow-across ctx ctx*s CtxState* Configuration**))
+               (flow-across ctx new-ctx CtxState* Configuration**))
 
-             (for* ([contextless-item (in-set (set-union news news-across))]
-                    [ctx* (in-set ctx*s)])
-               (define item (cons ctx* contextless-item))
+             (for* ([item (sequence-append (in-set news) (in-set news-across))])
                (unless (set-member? Seen item)
                  (set-add! Seen item)
                  (work-set-add! W item)))
