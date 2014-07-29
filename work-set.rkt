@@ -40,7 +40,6 @@
   (kurtosis (work-set-visit-histo s)))
 
 (struct work-set (h)
-        #:transparent
         #:methods gen:set
         [(define/generic generic-set-count set-count)
          (define/generic generic-set->stream set->stream)
@@ -70,7 +69,7 @@
 
 (define (initial-work-set states)
   (define ss (empty-work-set))
-  (for ([state states])
+  (for ([state (in-set states)])
     (work-set-add! ss state))
   ss)
 (define (work-set-relevant-subset s c)
@@ -84,7 +83,7 @@
 (define (work-set-add! Seen item)
   (match-define (list ctx sigma code) item)
   (define relevant-subset (work-set-relevant-subset Seen code))
-  (define already-known (for/or ([x relevant-subset]) (item-gte? x item)))
+  (define already-known (for/or ([x (in-set relevant-subset)]) (item-gte? x item)))
   (cond [already-known
          (log-debug "We already know:\n  ~a\nwhose related stuff is:\n  ~a\n\n"
                    item
@@ -110,6 +109,6 @@
 ;; Set Utilities
 
 (define (set-filter! s p)
-  (for ([e (set->list s)])
+  (for ([e (in-list (set->list s))])
     (unless (p e)
       (set-remove! s e))))

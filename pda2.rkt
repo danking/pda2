@@ -32,7 +32,7 @@
 
     (define W (initial-work-set initial-states))
     (define Seen (mutable-set))
-    (for ([item initial-states]) (set-add! Seen item))
+    (for ([item (in-set initial-states)]) (set-add! Seen item))
 
     (define i 0)
     (define samples 0)
@@ -75,7 +75,7 @@
              (when (= (modulo i (* 20 PRINT_FREQUENCY)) 0)
                (printf "::\n")
                (define x (make-hash))
-               (for ((item Seen))
+               (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! x
                             (pda-term->uid code)
@@ -91,7 +91,7 @@
                                  (lambda (x y)
                                    (> (second x) (second y)))))
                (define contexts (make-hash))
-               (for ((item Seen))
+               (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! contexts
                             (pda-term->uid code)
@@ -104,7 +104,7 @@
                               (set-count (hash-ref contexts (first p))))
                             (take ls2 20)))
                (define regenvs (make-hash))
-               (for ((item Seen))
+               (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! regenvs
                             (pda-term->uid code)
@@ -117,7 +117,7 @@
                               (set-count (hash-ref regenvs (first p))))
                             (take ls2 20)))
                (define pushes (make-hash))
-               (for ((item Seen))
+               (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! pushes
                             (pda-term->uid code)
@@ -143,8 +143,8 @@
              (define-values (news-across CtxState** Configuration***)
                (flow-across ctx ctx*s CtxState* Configuration**))
 
-             (for* ([contextless-item (set-union news news-across)]
-                    [ctx* ctx*s])
+             (for* ([contextless-item (in-set (set-union news news-across))]
+                    [ctx* (in-set ctx*s)])
                (define item (cons ctx* contextless-item))
                (unless (set-member? Seen item)
                  (set-add! Seen item)

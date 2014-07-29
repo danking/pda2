@@ -31,7 +31,6 @@
   (kurtosis (seen-set-visit-histo s)))
 
 (struct seen-set (h)
-        #:transparent
         #:methods gen:set
         [(define/generic generic-set-count set-count)
          (define/generic generic-set->stream set->stream)
