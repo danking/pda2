@@ -51,14 +51,15 @@
            (for/sum ([(ctx st) (in-hash (work-set-h s))])
              (generic-set-count st)))
          (define (set-first s)
-           (or (for/first ([(k v) (in-hash (work-set-h s))]
-                           #:when (not (generic-set-empty? v)))
-                 (generic-set-first v))
-               (error 'set-first "empty work-set ~a~" s)))
+           (define h (work-set-h s))
+           (generic-set-first (hash-iterate-value h (hash-iterate-first h))))
          (define (set-remove! s e)
-           (generic-set-remove! (work-set-relevant-subset s (third e)) e))
+           (let ((relevant-subset (work-set-relevant-subset s (third e))))
+             (cond [(= 1 (generic-set-count relevant-subset))
+                    (work-set-remove-relevant-subset! s (third e))]
+                   [else (generic-set-remove! relevant-subset e)])))
          (define (set-empty? s)
-           (for/and ([(k v) (in-hash (work-set-h s))]) (generic-set-empty? v)))
+           (hash-empty? (work-set-h s)))
          (define (set->stream s)
            (generic-set->stream
             (for/fold ([seen (set)]) ([(code states) (in-hash (work-set-h s))])
@@ -72,6 +73,8 @@
   (for ([state (in-set states)])
     (work-set-add! ss state))
   ss)
+(define (work-set-remove-relevant-subset! s c)
+  (hash-remove! (work-set-h s) c))
 (define (work-set-relevant-subset s c)
   (hash-ref (work-set-h s) c
             (lambda ()
