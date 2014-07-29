@@ -42,7 +42,7 @@
     (define running-average-speed 0)
     (define PRINT_FREQUENCY 5000)
 
-    (printf "(W\t Seen\tTime(ms) ΔTime(ms) ΔSize\t Rate(1/ms) AvgRate Samples i)\n")
+    (printf "(W\t Seen\t ContextState\t t(ms)\t Δt(ms)\t ΔSize\t Rate(1/ms) AvgRate Samples i)\n")
 
     (define (loop Configuration CtxState)
       (cond
@@ -64,6 +64,7 @@
                (printf "(~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a)   ~a\n"
                        (set-count W)
                        (set-count Seen)
+                       (ctx-state-callers&summaries-count CtxState)
                        (- time-now start-time)
                        time-diff
                        size-diff
