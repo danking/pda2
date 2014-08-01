@@ -6,8 +6,11 @@
 (provide PDA2 FlowAnalysis)
 
 (require "../pda-to-pda-risc/risc-enhanced/data.rkt"
+         "../pda-to-pda-risc/risc-enhanced/basic-block-data.rkt"
          math/statistics
          "../semantics/abstract.rkt"
+         (only-in "../semantics/context.rkt"
+                  ctx-state-callers&summaries-count)
          (only-in "../semantics/context-data.rkt"
                   context-push
                   context-top-of-stack))
@@ -61,7 +64,7 @@
                (set! running-average-speed
                      (+ (/ (* (sub1 samples) running-average-speed) samples)
                         (/ speed-now samples)))
-               (printf "(~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a)   ~a\n"
+               (printf "(~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a\t ~a)   ~a\n"
                        (set-count W)
                        (set-count Seen)
                        (ctx-state-callers&summaries-count CtxState)
@@ -79,8 +82,8 @@
                (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! x
-                            (pda-term->uid code)
-                            (add1 (hash-ref x (pda-term->uid code) 0))))
+                            (block-uid code)
+                            (add1 (hash-ref x (block-uid code) 0))))
                (define ls (for/list (((k v) x)) v))
                (printf "Mean Median Variance: ~a ~a ~a\n"
                        (exact->inexact (mean ls))
@@ -95,9 +98,9 @@
                (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! contexts
-                            (pda-term->uid code)
+                            (block-uid code)
                             (set-add (hash-ref contexts
-                                               (pda-term->uid code)
+                                               (block-uid code)
                                                (set))
                                      ctx)))
                (printf "Contexts Top 20: ~a\n"
@@ -108,9 +111,9 @@
                (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! regenvs
-                            (pda-term->uid code)
+                            (block-uid code)
                             (set-add (hash-ref regenvs
-                                               (pda-term->uid code)
+                                               (block-uid code)
                                                (set))
                                      (abstract-state-re sigma))))
                (printf "RegEnvs Top 20: ~a\n"
@@ -121,9 +124,9 @@
                (for ((item (in-set Seen)))
                  (match-define (list ctx sigma code) item)
                  (hash-set! pushes
-                            (pda-term->uid code)
+                            (block-uid code)
                             (set-add (hash-ref pushes
-                                               (pda-term->uid code)
+                                               (block-uid code)
                                                (set))
                                      (context-push ctx))))
                (printf "Pushes Top 20: ~a\n"

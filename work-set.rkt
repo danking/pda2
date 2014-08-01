@@ -104,7 +104,7 @@
   (match-define (list ctx sigma code) l)
   (match-define (list ctx2 sigma2 code2) r)
 
-  (and (fast-term-equal? code code2)
+  (and (fast-block-equal? code code2)
        ((ctx-gte?) ctx ctx2)
        ((sigma-gte?) sigma sigma2)))
 
