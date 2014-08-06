@@ -39,6 +39,7 @@
 (define (work-set-kurtosis-visits s)
   (kurtosis (work-set-visit-histo s)))
 
+;; A [WorkSet A] is a [MutableHash Code [MutableHash Context A]]
 (struct work-set (h)
         #:methods gen:set
         [(define/generic generic-set-count set-count)
@@ -48,21 +49,33 @@
          (define/generic generic-set-remove! set-remove!)
          (define/generic generic-set-empty? set-empty?)
          (define (set-count s)
-           (for/sum ([(ctx st) (in-hash (work-set-h s))])
-             (generic-set-count st)))
+           (for*/sum ([(code ctx-hash) (in-hash (work-set-h s))]
+                      [(ctx states) (in-hash ctx-hash)])
+             (generic-set-count states)))
          (define (set-first s)
-           (define h (work-set-h s))
-           (generic-set-first (hash-iterate-value h (hash-iterate-first h))))
+           (define code-hash (work-set-h s))
+           (define ctx-hash
+             (hash-iterate-value code-hash (hash-iterate-first code-hash)))
+           (define relevant-subset
+             (hash-iterate-value ctx-hash (hash-iterate-first ctx-hash)))
+           (generic-set-first (hash-iterate-value ctx-hash (hash-iterate-first ctx-hash))))
          (define (set-remove! s e)
-           (let ((relevant-subset (work-set-relevant-subset s (third e))))
+           (let ((relevant-subset (work-set-relevant-subset s (first e) (third e))))
              (cond [(= 1 (generic-set-count relevant-subset))
-                    (work-set-remove-relevant-subset! s (third e))]
-                   [else (generic-set-remove! relevant-subset e)])))
+                    (work-set-remove-relevant-subset! s (first e) (third e))]
+                   [else (work-set-relevant-subset-update!
+                          s (first e) (third e)
+                          (lambda (relevant-subset)
+                            (generic-set-remove! relevant-subset e)
+                            relevant-subset)
+                          (make-empty-relevant-set))])))
          (define (set-empty? s)
            (hash-empty? (work-set-h s)))
          (define (set->stream s)
            (generic-set->stream
-            (for/fold ([seen (set)]) ([(code states) (in-hash (work-set-h s))])
+            (for*/fold ([seen (set)])
+                ([(code ctx-hash) (in-hash (work-set-h s))]
+                 [(ctx states) (in-hash ctx-hash)])
               (generic-set-union seen states))))])
 
 (define (empty-work-set) (work-set (make-hash)))
@@ -73,19 +86,27 @@
   (for ([state (in-set states)])
     (work-set-add! ss state))
   ss)
-(define (work-set-remove-relevant-subset! s c)
-  (hash-remove! (work-set-h s) c))
-(define (work-set-relevant-subset s c)
-  (hash-ref (work-set-h s) c
-            (lambda ()
-              (log-debug "Didn't find a set for ~a in ~a\n" c s)
-              (define new (make-empty-relevant-set))
-              (hash-set! (work-set-h s) c new)
-              (log-debug "Now you should see it mapped in ~a\n\n" s)
-              new)))
-(define (work-set-add! Seen item)
+(define (work-set-remove-relevant-subset! s ctx code)
+  (define ctx-hash (hash-ref (work-set-h s) code #f))
+  (when ctx-hash
+    (hash-remove! ctx-hash ctx)
+    (when (hash-empty? ctx-hash)
+      (hash-remove! (work-set-h s) code))))
+(define (work-set-relevant-subset s ctx code)
+  (hash-ref (hash-ref (work-set-h s) code (make-hash)) ctx (make-empty-relevant-set)))
+(define (work-set-relevant-subset-update! s ctx code updater default)
+  (hash-update! (work-set-h s)
+                code
+                (lambda (ctx-hash)
+                  (hash-update! ctx-hash
+                                ctx
+                                updater
+                                default)
+                  ctx-hash)
+                (make-hash)))
+(define (work-set-add! W item)
   (match-define (list ctx sigma code) item)
-  (define relevant-subset (work-set-relevant-subset Seen code))
+  (define relevant-subset (work-set-relevant-subset W ctx code))
   (define already-known (for/or ([x (in-set relevant-subset)]) (item-gte? x item)))
   (cond [already-known
          (log-debug "We already know:\n  ~a\nwhose related stuff is:\n  ~a\n\n"
@@ -94,10 +115,17 @@
          #f]
         [else
          (log-debug "Before filtering: ~a\n" relevant-subset)
-         (set-filter! relevant-subset (lambda (x) (not (item-gte? item x))))
-         (log-debug "After filtering: ~a\n" relevant-subset)
-         (set-add! relevant-subset item)
-         (log-debug "After add: ~a\n\n" relevant-subset)
+         (work-set-relevant-subset-update!
+          W
+          ctx
+          code
+          (lambda (relevant-subset)
+            (set-filter! relevant-subset (lambda (x) (not (item-gte? item x))))
+            (log-debug "After filtering: ~a\n" relevant-subset)
+            (set-add! relevant-subset item)
+            (log-debug "After add: ~a\n\n" relevant-subset)
+            relevant-subset)
+          (make-empty-relevant-set))
          #t]))
 
 (define (item-gte? l r)
